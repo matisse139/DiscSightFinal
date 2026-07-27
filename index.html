@@ -1,0 +1,2135 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DiscSight | Ultimate Analytics Workspace</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Plotly.js CDN -->
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Three.js + OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <!-- MediaPipe Pose JS Dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --bg-color: #08090d;
+      --bg-grid-color: rgba(255, 255, 255, 0.08);
+      --glass-bg: rgba(18, 20, 29, 0.75);
+      --glass-bg-hover: rgba(30, 37, 51, 0.85);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.37);
+      --glass-blur: 16px;
+      
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-inverse: #ffffff;
+      
+      --accent-color: #ef4444;
+      --accent-hover: #dc2626;
+      --accent-glow: rgba(239, 68, 68, 0.35);
+
+      --card-inner-bg: rgba(17, 24, 39, 0.75);
+      --input-bg: rgba(31, 41, 55, 0.7);
+      --border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    [data-theme="light"] {
+      --bg-color: #f8fafc;
+      --bg-grid-color: rgba(0, 0, 0, 0.06);
+      --glass-bg: rgba(255, 255, 255, 0.75);
+      --glass-bg-hover: rgba(255, 255, 255, 0.9);
+      --glass-border: rgba(0, 0, 0, 0.1);
+      --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+      
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --text-inverse: #ffffff;
+      
+      --card-inner-bg: rgba(241, 245, 249, 0.85);
+      --input-bg: rgba(255, 255, 255, 0.8);
+      --border-color: rgba(0, 0, 0, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .bg-grid {
+      background-image: radial-gradient(var(--bg-grid-color) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+
+    .glow-orb-1 {
+      position: fixed;
+      top: -150px;
+      left: 20%;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, rgba(37, 99, 235, 0.1) 50%, rgba(0, 0, 0, 0) 70%);
+      filter: blur(90px);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .glow-orb-2 {
+      position: fixed;
+      bottom: -150px;
+      right: 10%;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, rgba(0, 0, 0, 0) 70%);
+      filter: blur(100px);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .glass-panel {
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-shadow);
+      border-radius: 16px;
+    }
+
+    .sidebar {
+      width: 320px;
+      margin: 20px;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-group label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    input[type="file"], select, input[type="range"] {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 10px 14px;
+      border-radius: 10px;
+      outline: none;
+      font-size: 0.875rem;
+    }
+
+    .color-picker-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: 10px;
+      width: 100%;
+      cursor: pointer;
+    }
+
+    .color-picker-wrapper input[type="color"] {
+      border: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      cursor: pointer;
+      background: none;
+    }
+
+    .toggle-btn {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .toggle-btn:hover {
+      background: var(--glass-bg-hover);
+      border-color: var(--accent-color);
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .preset-btn {
+      padding: 8px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      border: 1px solid var(--border-color);
+      background: var(--input-bg);
+      color: var(--text-main);
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .preset-btn:hover {
+      border-color: var(--accent-color);
+      transform: translateY(-1px);
+    }
+
+    .main-content {
+      flex: 1;
+      padding: 24px 32px 40px 16px;
+      overflow-y: auto;
+      max-width: 1280px;
+      z-index: 10;
+    }
+
+    .card {
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .card h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text-main);
+    }
+
+    .tabs-header {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 24px;
+      gap: 12px;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      padding: 12px 20px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .tab-btn.active {
+      color: var(--accent-color);
+      border-bottom-color: var(--accent-color);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .badge-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .badge-card {
+      background: var(--card-inner-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      opacity: 0.45;
+      filter: grayscale(100%);
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .badge-card.unlocked {
+      opacity: 1;
+      filter: grayscale(0%);
+      border-color: var(--accent-color);
+      box-shadow: 0 4px 20px -5px var(--accent-glow);
+    }
+
+    .badge-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: var(--input-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      color: var(--accent-color);
+      flex-shrink: 0;
+    }
+
+    .drill-video-container {
+      position: relative;
+      padding-bottom: 56.25%;
+      height: 0;
+      overflow: hidden;
+      border-radius: 12px;
+      background: #000;
+    }
+
+    .drill-video-container iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
+    .media-type-selector {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .type-btn {
+      flex: 1;
+      padding: 12px;
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.875rem;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .type-btn.active {
+      background: var(--accent-color);
+      border-color: var(--accent-color);
+      color: var(--text-inverse);
+      box-shadow: 0 8px 20px -4px var(--accent-glow);
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1.8fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 20px 0;
+    }
+
+    .img-box {
+      background: var(--card-inner-bg);
+      border: 1px dashed var(--border-color);
+      border-radius: 12px;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 12px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .img-box img, .img-box video {
+      max-width: 100%;
+      max-height: 350px;
+      height: auto;
+      border-radius: 8px;
+    }
+
+    .metric-card {
+      background: var(--card-inner-bg);
+      border: 1px solid var(--border-color);
+      padding: 24px;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .metric-value {
+      font-size: 3rem;
+      font-weight: 800;
+      color: var(--accent-color);
+    }
+
+    .btn {
+      padding: 12px 24px;
+      background-color: var(--accent-color);
+      color: var(--text-inverse);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 10px 25px -5px var(--accent-glow);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn:hover {
+      filter: brightness(1.1);
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      background: var(--input-bg);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      box-shadow: none;
+    }
+
+    .btn-secondary:hover {
+      background: var(--glass-bg-hover);
+      border-color: var(--accent-color);
+    }
+
+    .video-controls-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 10px;
+      padding: 8px 12px;
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      width: 100%;
+    }
+
+    .video-controls-bar button, .video-controls-bar select {
+      font-size: 0.8rem;
+      padding: 4px 8px;
+      width: auto;
+    }
+
+    .chat-box {
+      height: 320px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      background: var(--card-inner-bg);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .chat-msg {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .chat-msg.assistant {
+      background: var(--input-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      align-self: flex-start;
+      border-bottom-left-radius: 2px;
+    }
+
+    .chat-msg.user {
+      background: var(--accent-color);
+      color: var(--text-inverse);
+      align-self: flex-end;
+      border-bottom-right-radius: 2px;
+    }
+
+    .chat-input-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .chat-input-row input {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      background: var(--input-bg);
+      color: var(--text-main);
+      outline: none;
+    }
+
+    .webcam-container {
+      position: relative;
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+    }
+
+    .webcam-container video {
+      width: 100%;
+      height: auto;
+      display: block;
+      transform: scaleX(-1);
+    }
+
+    .webcam-container canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      transform: scaleX(-1);
+    }
+
+    .realtime-score-badge {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--accent-color);
+      padding: 8px 16px;
+      border-radius: 12px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 1.25rem;
+      z-index: 5;
+    }
+
+    .viewport-container {
+      position: relative;
+      width: 100%;
+      height: 480px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--glass-border);
+      background: radial-gradient(circle at center, #111827 0%, #030712 100%);
+    }
+
+    #threejs-canvas-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    .glass-hud-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px;
+      z-index: 10;
+    }
+
+    .hud-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .hud-card {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 10px 16px;
+      color: #fff;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+      pointer-events: auto;
+    }
+
+    .hud-neon-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .neon-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #10b981;
+      box-shadow: 0 0 10px #10b981, 0 0 20px #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .hud-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .hud-stat-box {
+      display: flex;
+      gap: 16px;
+    }
+
+    .skill-matrix-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .skill-node {
+      background: var(--card-inner-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 20px;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .skill-node.unlocked {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 20px -5px var(--accent-glow);
+    }
+
+    .skill-node.locked {
+      opacity: 0.5;
+      filter: grayscale(80%);
+    }
+
+    .skill-node:hover {
+      transform: translateY(-4px);
+    }
+
+    .skill-node-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .skill-icon-badge {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: var(--input-bg);
+      color: var(--accent-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+    }
+
+    .streak-banner {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(245, 158, 11, 0.15));
+      border: 1px solid var(--accent-color);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .xp-progress-bar {
+      width: 100%;
+      height: 10px;
+      background: var(--input-bg);
+      border-radius: 5px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .xp-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-color), #f59e0b);
+      width: 0%;
+      transition: width 0.5s ease-in-out;
+    }
+
+    .micro-drill-card {
+      background: var(--card-inner-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    footer {
+      margin-top: 40px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body class="bg-grid flex min-h-screen relative">
+
+  <div class="glow-orb-1"></div>
+  <div class="glow-orb-2"></div>
+
+  <aside class="sidebar glass-panel">
+    <a href="/" class="btn btn-secondary w-full">
+      <i class="fa-solid fa-arrow-left"></i> Back to Home
+    </a>
+
+    <div class="flex items-center gap-3 my-2">
+      <div class="w-9 h-9 rounded-xl btn flex items-center justify-center p-0">
+        <i class="fa-solid fa-compact-disc text-lg animate-spin" style="animation-duration: 8s;"></i>
+      </div>
+      <h2 class="text-xl font-bold tracking-tight">Disc<span style="color: var(--accent-color);">Sight</span></h2>
+    </div>
+
+    <hr style="border-color: var(--border-color);">
+
+    <div class="form-group">
+      <label><i class="fa-solid fa-bullseye mr-1"></i> Throw Selection Preset</label>
+      <select id="throw-type-select">
+        <option value="backhand" selected>Backhand</option>
+        <option value="forehand">Forehand / Flick</option>
+        <option value="hammer">Hammer</option>
+        <option value="scoober">Scoober</option>
+      </select>
+    </div>
+
+    <!-- Aesthetic Customization Studio (Theme Engine) -->
+    <div class="form-group">
+      <label><i class="fa-solid fa-palette mr-1"></i> Theme Presets</label>
+      <div class="preset-grid">
+        <button class="preset-btn" onclick="applyThemePreset('cyberpunk')">Cyberpunk</button>
+        <button class="preset-btn" onclick="applyThemePreset('obsidian')">Obsidian</button>
+        <button class="preset-btn" onclick="applyThemePreset('glass')">Liquid Glass</button>
+        <button class="preset-btn" onclick="applyThemePreset('crt')">Retro CRT</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Glowing Accent Color</label>
+      <div class="color-picker-wrapper">
+        <input type="color" id="accent-color-picker" value="#ef4444" onchange="updateAccentColor(this.value)">
+        <span style="font-size: 0.85rem; font-weight: 600;" id="accent-hex-text">#ef4444</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Skeleton Line Thickness: <span id="line-thick-val">3px</span></label>
+      <input type="range" id="line-thickness-slider" min="1" max="10" value="3" oninput="updateLineThickness(this.value)">
+    </div>
+
+    <div class="form-group">
+      <label>Glow Intensity: <span id="glow-val">50%</span></label>
+      <input type="range" id="glow-slider" min="0" max="100" value="50" oninput="updateGlowIntensity(this.value)">
+    </div>
+
+    <div class="form-group">
+      <label>Glass Blur Level: <span id="blur-val">16px</span></label>
+      <input type="range" id="blur-slider" min="0" max="40" value="16" oninput="updateGlassBlur(this.value)">
+    </div>
+
+    <div class="form-group">
+      <label>Mode</label>
+      <button class="toggle-btn" onclick="toggleTheme()" id="theme-toggle-btn">
+        <i class="fa-solid fa-moon"></i> Dark Mode
+      </button>
+    </div>
+  </aside>
+
+  <main class="main-content flex-1">
+    <header class="mb-8">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider mb-3" style="background: var(--accent-glow); color: var(--accent-color); border: 1px solid var(--accent-color);">
+        <i class="fa-solid fa-bolt text-xs"></i> Analytics Workspace
+      </div>
+      <h1 class="text-4xl font-extrabold tracking-tight mb-2">Performance Dashboard</h1>
+      <p style="color: var(--text-muted);" class="text-sm">Transforming observational coaching into actionable, data-driven telemetry.</p>
+    </header>
+
+    <div class="tabs-header">
+      <button class="tab-btn active" onclick="switchTab(event, 'tab-scorer')"><i class="fa-solid fa-star mr-2"></i>AI Mechanic Scorer</button>
+      <button class="tab-btn" onclick="switchTab(event, 'tab-skill-matrix')"><i class="fa-solid fa-network-wired mr-2"></i>Skill Matrix & Radar</button>
+      <button class="tab-btn" onclick="switchTab(event, 'tab-badges')"><i class="fa-solid fa-fire mr-2"></i>Challenges & Streaks</button>
+      <button class="tab-btn" onclick="switchTab(event, 'tab1')"><i class="fa-solid fa-code-compare mr-2"></i>Pro Comparison</button>
+      <button class="tab-btn" onclick="switchTab(event, 'tab2')"><i class="fa-solid fa-chart-line mr-2"></i>Progress Tracker</button>
+      <button class="tab-btn" onclick="switchTab(event, 'tab4')"><i class="fa-solid fa-robot mr-2"></i>AI Coach</button>
+    </div>
+
+    <!-- AI Throw Scorer Tab -->
+    <div id="tab-scorer" class="tab-content active card glass-panel">
+      <h3>AI Throw Kinematic Scorer & Viewport</h3>
+      <p style="color: var(--text-muted);" class="text-sm mb-6">
+        Choose live webcam detection, frame photo upload, or recorded video to score biomechanics in real-time.
+      </p>
+
+      <div class="media-type-selector">
+        <button id="btn-select-webcam" class="type-btn active" onclick="selectUploadType('webcam')"><i class="fa-solid fa-video mr-2"></i>Live Webcam</button>
+        <button id="btn-select-image" class="type-btn" onclick="selectUploadType('image')"><i class="fa-solid fa-camera mr-2"></i>Upload Photo</button>
+        <button id="btn-select-video" class="type-btn" onclick="selectUploadType('video')"><i class="fa-solid fa-file-video mr-2"></i>Upload Video</button>
+      </div>
+
+      <div class="card rounded-xl mb-4" style="background: var(--card-inner-bg); border: 1px solid var(--border-color);">
+        <div id="upload-webcam-section" class="form-group">
+          <div class="flex items-center justify-between mb-2">
+            <label>Real-Time Camera Detection</label>
+            <button id="webcam-toggle-btn" class="btn btn-secondary text-xs" onclick="toggleWebcamStream()">
+              <i class="fa-solid fa-power-off mr-1"></i> Start Camera
+            </button>
+          </div>
+          
+          <div class="webcam-container" id="webcam-box">
+            <div class="realtime-score-badge" id="live-score-badge">Score: --</div>
+            <video id="webcam-video" playsinline></video>
+            <canvas id="webcam-canvas"></canvas>
+          </div>
+        </div>
+
+        <div id="upload-image-section" class="form-group" style="display: none;">
+          <label>Select Throw Image</label>
+          <input type="file" id="score-img-input" accept="image/*" onchange="previewScoreMedia(event, 'img')">
+          <div class="img-box mt-3" id="score-img-box">
+            <span>Image Preview</span>
+          </div>
+        </div>
+
+        <div id="upload-video-section" class="form-group" style="display: none;">
+          <label>Select Throw Video Clip</label>
+          <input type="file" id="score-vid-input" accept="video/*" onchange="previewScoreMedia(event, 'vid')">
+          
+          <div class="img-box mt-3" id="score-vid-box">
+            <span>Video Preview</span>
+          </div>
+
+          <div class="video-controls-bar" id="vid-controls" style="display: none;">
+            <button class="btn btn-secondary" onclick="stepFrame(-1)"><i class="fa-solid fa-backward-step"></i> -1 Frame</button>
+            <button class="btn btn-secondary" onclick="stepFrame(1)"><i class="fa-solid fa-forward-step"></i> +1 Frame</button>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Speed:</span>
+            <select id="speed-select" onchange="changePlaybackSpeed(this.value)">
+              <option value="0.25">0.25x</option>
+              <option value="0.5">0.5x</option>
+              <option value="1.0" selected>1.0x</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <button id="analyze-media-btn" class="btn w-full mt-2" onclick="runThrowScorer()" style="display: none;">
+        <i class="fa-solid fa-play"></i> Analyze & Score My Throw
+      </button>
+
+      <!-- 3D Kinematic Viewport -->
+      <div class="mt-8">
+        <h3 class="mb-2"><i class="fa-solid fa-cube text-red-500 mr-2"></i>3D Kinematic Viewport & Frosted Glass HUD</h3>
+        <p style="color: var(--text-muted);" class="text-sm mb-4">Rotate, zoom, and orbit around your reconstructed 3D skeletal posture.</p>
+        
+        <div class="viewport-container mb-6">
+          <div id="threejs-canvas-container"></div>
+          
+          <div class="glass-hud-overlay">
+            <div class="hud-header">
+              <div class="hud-card hud-neon-pill">
+                <div class="neon-indicator"></div>
+                <span>3D Rig Tracker active</span>
+              </div>
+              <div class="hud-card text-xs font-mono">
+                <i class="fa-solid fa-arrows-spin mr-1"></i> Orbit Mode: Drag to rotate
+              </div>
+            </div>
+
+            <div class="hud-footer">
+              <div class="hud-stat-box">
+                <div class="hud-card">
+                  <div class="text-xs text-gray-400 font-semibold uppercase">Elbow Flexion</div>
+                  <div class="text-lg font-black text-red-400" id="hud-elbow-val">142.5°</div>
+                </div>
+                <div class="hud-card">
+                  <div class="text-xs text-gray-400 font-semibold uppercase">Brace Angle</div>
+                  <div class="text-lg font-black text-emerald-400" id="hud-knee-val">132.1°</div>
+                </div>
+              </div>
+              <div class="hud-card text-right">
+                <div class="text-xs text-gray-400 font-semibold uppercase">Kinematic Rig</div>
+                <div class="text-sm font-bold text-white">MediaPipe 3D Mesh</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scorer Results Section -->
+      <div id="scorer-results" style="display: none;" class="mt-8">
+        <div class="dashboard-grid mb-4">
+          <div class="metric-card">
+            <div style="color: var(--text-muted);" class="text-sm font-semibold uppercase tracking-wider mb-1">Overall Mechanics Score</div>
+            <div class="metric-value" id="overall-score-val">0 / 100</div>
+          </div>
+          <div class="card glass-panel" id="skeleton-card">
+            <h4 class="font-bold mb-2">Pose Skeleton Kinematic Overlay</h4>
+            <div id="scorer-skeleton-box" class="img-box mt-2" style="min-height: 180px;"></div>
+          </div>
+        </div>
+
+        <div class="card glass-panel mb-6">
+          <h3>Mechanics Spider Chart Breakdown</h3>
+          <div id="spider-chart"></div>
+        </div>
+
+        <div class="card glass-panel mb-6">
+          <h3>AI Mechanical Pointers</h3>
+          <div id="ai-feedback-text" class="mt-3 p-4 rounded-xl text-sm" style="white-space: pre-line; line-height: 1.6; color: var(--text-main); background: var(--card-inner-bg); border: 1px solid var(--border-color);"></div>
+        </div>
+
+        <div class="card glass-panel" id="custom-drill-card" style="border-left: 4px solid var(--accent-color);">
+          <div class="flex items-center gap-2 mb-2">
+            <i class="fa-solid fa-dumbbell text-lg" style="color: var(--accent-color);"></i>
+            <h3 class="m-0">Custom Auto-Generated Drill Routine</h3>
+          </div>
+          <p style="color: var(--text-muted);" class="text-sm mb-4">Targeting sub-score: <strong id="drill-target-subscore" style="color: var(--accent-color);">None</strong></p>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 id="drill-title" class="text-lg font-bold mb-1">Drill Title</h4>
+              <div id="drill-duration" class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-3" style="background: var(--input-bg); color: var(--accent-color); border: 1px solid var(--border-color);">10 Minutes</div>
+              <p id="drill-desc" class="text-sm mb-4" style="color: var(--text-muted);"></p>
+              
+              <h5 class="text-xs font-bold uppercase tracking-wider mb-2" style="color: var(--text-muted);">Step-by-Step Training Program</h5>
+              <div id="drill-steps" class="flex flex-col gap-2 text-sm"></div>
+            </div>
+            <div>
+              <h5 class="text-xs font-bold uppercase tracking-wider mb-2" style="color: var(--text-muted);">Instructional Video Routine</h5>
+              <div class="drill-video-container">
+                <iframe id="drill-video-frame" src="" title="Instructional Video" allowfullscreen></iframe>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: GAMIFIED SKILL MATRIX & RADAR -->
+    <div id="tab-skill-matrix" class="tab-content card glass-panel">
+      <h3>Gamified Skill Matrix & Form Radar</h3>
+      <p style="color: var(--text-muted);" class="text-sm mb-6">
+        Unlock biomechanical skill nodes by improving sub-scores and compare your form against world-class elite throwers.
+      </p>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div class="lg:col-span-1 glass-panel p-4 flex flex-col items-center justify-center">
+          <h4 class="font-bold text-sm mb-4 text-center">Athlete vs Pro Benchmark Radar</h4>
+          <div class="w-full relative" style="max-height: 320px;">
+            <canvas id="chartjs-radar-canvas"></canvas>
+          </div>
+        </div>
+
+        <div class="lg:col-span-2">
+          <h4 class="font-bold text-sm mb-2">Interactive Biomechanical Skill Tree</h4>
+          <div class="skill-matrix-grid">
+            <div class="skill-node unlocked" id="node-power-pocket" onclick="toggleSkillNode('node-power-pocket')">
+              <div class="skill-node-header">
+                <div class="skill-icon-badge"><i class="fa-solid fa-hand-fist"></i></div>
+                <span class="text-xs font-bold uppercase text-emerald-400"><i class="fa-solid fa-lock-open mr-1"></i>Unlocked</span>
+              </div>
+              <h5 class="font-bold text-sm">Power Pocket Master</h5>
+              <p class="text-xs text-gray-400 mt-1">Maintains acute 90° elbow bend during chest compression.</p>
+            </div>
+
+            <div class="skill-node unlocked" id="node-brace-plant" onclick="toggleSkillNode('node-brace-plant')">
+              <div class="skill-node-header">
+                <div class="skill-icon-badge"><i class="fa-solid fa-shoe-prints"></i></div>
+                <span class="text-xs font-bold uppercase text-emerald-400"><i class="fa-solid fa-lock-open mr-1"></i>Unlocked</span>
+              </div>
+              <h5 class="font-bold text-sm">Brace Foot Lock</h5>
+              <p class="text-xs text-gray-400 mt-1">Firm plant knee preventing forward momentum bleed.</p>
+            </div>
+
+            <div class="skill-node locked" id="node-hip-whip" onclick="toggleSkillNode('node-hip-whip')">
+              <div class="skill-node-header">
+                <div class="skill-icon-badge"><i class="fa-solid fa-arrows-spin"></i></div>
+                <span class="text-xs font-bold uppercase text-red-400" id="node-hip-whip-status"><i class="fa-solid fa-lock mr-1"></i>Locked</span>
+              </div>
+              <h5 class="font-bold text-sm">Kinematic Torque</h5>
+              <p class="text-xs text-gray-400 mt-1">Initiates hip turn 100ms before upper body rotation.</p>
+            </div>
+
+            <div class="skill-node locked" id="node-flat-rail" onclick="toggleSkillNode('node-flat-rail')">
+              <div class="skill-node-header">
+                <div class="skill-icon-badge"><i class="fa-solid fa-slash-forward"></i></div>
+                <span class="text-xs font-bold uppercase text-red-400" id="node-flat-rail-status"><i class="fa-solid fa-lock mr-1"></i>Locked</span>
+              </div>
+              <h5 class="font-bold text-sm">Flat Trajectory Rail</h5>
+              <p class="text-xs text-gray-400 mt-1">Zero hyzer roll or wobble across release execution.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: GAMIFIED CHALLENGES & STREAKS -->
+    <div id="tab-badges" class="tab-content card glass-panel">
+      <div class="streak-banner">
+        <div class="flex items-center gap-4">
+          <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl" style="background: rgba(239, 68, 68, 0.2); color: var(--accent-color);">
+            <i class="fa-solid fa-fire animate-bounce"></i>
+          </div>
+          <div>
+            <div class="text-xs font-bold uppercase tracking-wider text-muted" style="color: var(--text-muted);">Active Training Streak</div>
+            <div class="text-2xl font-black" id="current-streak-val">0 Days</div>
+            <div class="text-xs" style="color: var(--text-muted);" id="streak-quote">Log throws daily to build your mechanical muscle memory!</div>
+          </div>
+        </div>
+
+        <div class="w-1/3 text-right">
+          <div class="text-xs font-bold uppercase tracking-wider" style="color: var(--text-muted);">Player Level & Experience</div>
+          <div class="text-lg font-bold" id="user-level-text">Level 1 Trainee</div>
+          <div class="xp-progress-bar">
+            <div class="xp-progress-fill" id="xp-bar-fill"></div>
+          </div>
+          <div class="text-xs mt-1" style="color: var(--text-muted);" id="xp-num-text">0 / 500 XP</div>
+        </div>
+      </div>
+
+      <h3 class="mb-2"><i class="fa-solid fa-list-check mr-2" style="color: var(--accent-color);"></i>Daily Form Micro-Drills</h3>
+      <p style="color: var(--text-muted);" class="text-sm mb-4">Complete isolated drill challenges to build form consistency and earn XP.</p>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8" id="micro-drills-container"></div>
+
+      <h3 class="mb-2"><i class="fa-solid fa-award mr-2" style="color: var(--accent-color);"></i>Biomechanical Milestones</h3>
+      <p style="color: var(--text-muted);" class="text-sm mb-6">Unlock form status badges by meeting strict execution thresholds in your throw score breakdowns.</p>
+
+      <div class="badge-grid">
+        <div class="badge-card" id="badge-elbow-snap">
+          <div class="badge-icon"><i class="fa-solid fa-bolt"></i></div>
+          <div>
+            <h4 class="font-bold text-sm">90° Elbow Snap Master</h4>
+            <p class="text-xs mb-1" style="color: var(--text-muted);">Score 85+ on Reach-back Extension sub-metric</p>
+            <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--accent-color);" id="status-elbow-snap">Locked</span>
+          </div>
+        </div>
+
+        <div class="badge-card" id="badge-brace-lock">
+          <div class="badge-icon"><i class="fa-solid fa-shoe-prints"></i></div>
+          <div>
+            <h4 class="font-bold text-sm">Brace Leg Lock</h4>
+            <p class="text-xs mb-1" style="color: var(--text-muted);">Score 85+ on Stance & Balance sub-metric</p>
+            <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--accent-color);" id="status-brace-lock">Locked</span>
+          </div>
+        </div>
+
+        <div class="badge-card" id="badge-rotation">
+          <div class="badge-icon"><i class="fa-solid fa-arrows-spin"></i></div>
+          <div>
+            <h4 class="font-bold text-sm">Rotational Master</h4>
+            <p class="text-xs mb-1" style="color: var(--text-muted);">Score 90+ on Core Rotation sub-metric</p>
+            <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--accent-color);" id="status-rotation">Locked</span>
+          </div>
+        </div>
+
+        <div class="badge-card" id="badge-streak">
+          <div class="badge-icon"><i class="fa-solid fa-fire"></i></div>
+          <div>
+            <h4 class="font-bold text-sm">5-Day Iron Thrower</h4>
+            <p class="text-xs mb-1" style="color: var(--text-muted);">Log throws across 5 consecutive calendar days</p>
+            <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--accent-color);" id="status-streak">Locked</span>
+          </div>
+        </div>
+
+        <div class="badge-card" id="badge-reach">
+          <div class="badge-icon"><i class="fa-solid fa-chart-line"></i></div>
+          <div>
+            <h4 class="font-bold text-sm">Reach-Back Mastery</h4>
+            <p class="text-xs mb-1" style="color: var(--text-muted);">Improve Reach-Back Extension score by 15%</p>
+            <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--accent-color);" id="status-reach">Locked</span>
+          </div>
+        </div>
+
+        <div class="badge-card" id="badge-century">
+          <div class="badge-icon"><i class="fa-solid fa-crown"></i></div>
+          <div>
+            <h4 class="font-bold text-sm">Elite Form Status</h4>
+            <p class="text-xs mb-1" style="color: var(--text-muted);">Achieve an overall throw score of 85+</p>
+            <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--accent-color);" id="status-century">Locked</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 1: Pro Comparison -->
+    <div id="tab1" class="tab-content card glass-panel">
+      <h3>Professional Player Comparison</h3>
+      <p style="color: var(--text-muted);" class="text-sm mb-6">Overlay and compare your release angles against elite reference form (accepts photos or videos).</p>
+
+      <div class="form-group mb-4">
+        <label>Upload Ideal Player Media (Image or Video)</label>
+        <input type="file" id="ref-img-input" accept="image/*,video/*">
+      </div>
+      <div class="form-group mb-6">
+        <label>Upload Your Throw (Image or Video)</label>
+        <input type="file" id="usr-img-input" accept="image/*,video/*">
+      </div>
+      <button class="btn" id="compare-pro-btn" onclick="compareProForm()"><i class="fa-solid fa-sliders"></i> Compare Form</button>
+
+      <div class="comparison-grid">
+        <div>
+          <h4 class="font-bold mb-2 text-sm">Professional Reference</h4>
+          <div class="img-box" id="ref-preview"><span>Reference Pose Overlay</span></div>
+        </div>
+        <div>
+          <h4 class="font-bold mb-2 text-sm">Your Attempt</h4>
+          <div class="img-box" id="usr-preview"><span>User Pose Overlay</span></div>
+        </div>
+      </div>
+
+      <div id="ai-summary-container" style="display: none;" class="mt-6">
+        <h3>AI Coaching Summary</h3>
+        <div id="ai-summary-text" class="mt-2 p-4 rounded-xl text-sm" style="white-space: pre-line; line-height: 1.6; color: var(--text-main); background: var(--card-inner-bg); border: 1px solid var(--border-color);"></div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Progress Tracker -->
+    <div id="tab2" class="tab-content card glass-panel">
+      <div class="flex justify-between items-center mb-6">
+        <h3>Personal Improvement Over Time</h3>
+        <button class="btn btn-secondary text-xs px-3 py-2" onclick="clearProgressHistory()"><i class="fa-solid fa-trash mr-1"></i> Clear History</button>
+      </div>
+      <p id="progress-empty-msg" style="color: var(--text-muted);" class="text-sm mb-4">
+        No throws recorded yet. Upload media or run webcam analysis to start tracking progress!
+      </p>
+      <div id="progress-chart"></div>
+      <div id="progress-metrics-chart" class="mt-6"></div>
+    </div>
+
+    <!-- Tab 4: AI Coach -->
+    <div id="tab4" class="tab-content card glass-panel">
+      <h3>DiscSight AI Coach</h3>
+      <p style="color: var(--text-muted);" class="text-sm mb-4">
+        Ask questions about Ultimate Frisbee strategy, throwing mechanics, training, or the dashboard results.
+      </p>
+      <div class="chat-box" id="chat-messages">
+        <div class="chat-msg assistant">
+          Hi! I'm your DiscSight AI Coach. Ask me anything about Ultimate Frisbee strategy or technique.
+        </div>
+      </div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Ask the AI Coach..." onkeydown="if(event.key === 'Enter') sendChatMessage()">
+        <button class="btn" onclick="sendChatMessage()"><i class="fa-solid fa-paper-plane"></i> Send</button>
+      </div>
+    </div>
+
+    <footer>
+      DiscSight AI © 2026 | Built for Ultimate Frisbee Analytics
+    </footer>
+  </main>
+
+  <script>
+    let currentTheme = 'dark';
+    let currentAccentColor = '#ef4444';
+    let lineThickness = 3;
+    let glowIntensity = 50;
+    let glassBlur = 16;
+
+    let cachedScorerData = null;
+    let activeVideoElem = null;
+
+    let webcamStream = null;
+    let cameraUtils = null;
+    let poseTracker = null;
+    let isWebcamActive = false;
+    let smoothedScore = 75;
+
+    let threeScene, threeCamera, threeRenderer, threeControls;
+    let jointSpheres = {};
+    let boneCylinders = [];
+    let chartjsRadar = null;
+
+    function toggleTheme() {
+      currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', currentTheme);
+      const toggleBtn = document.getElementById('theme-toggle-btn');
+      toggleBtn.innerHTML = currentTheme === 'dark' ? '<i class="fa-solid fa-moon"></i> Dark Mode' : '<i class="fa-solid fa-sun"></i> Light Mode';
+      refreshActiveCharts();
+    }
+
+    // Dynamic Theme Engine Presets
+    function applyThemePreset(presetKey) {
+      if (presetKey === 'cyberpunk') {
+        updateAccentColor('#00ffcc');
+        updateLineThickness(4);
+        updateGlowIntensity(80);
+        updateGlassBlur(20);
+      } else if (presetKey === 'obsidian') {
+        updateAccentColor('#a855f7');
+        updateLineThickness(2);
+        updateGlowIntensity(20);
+        updateGlassBlur(8);
+      } else if (presetKey === 'glass') {
+        updateAccentColor('#3b82f6');
+        updateLineThickness(3);
+        updateGlowIntensity(40);
+        updateGlassBlur(30);
+      } else if (presetKey === 'crt') {
+        updateAccentColor('#22c55e');
+        updateLineThickness(5);
+        updateGlowIntensity(90);
+        updateGlassBlur(5);
+      }
+    }
+
+    function updateAccentColor(colorHex) {
+      currentAccentColor = colorHex;
+      document.documentElement.style.setProperty('--accent-color', colorHex);
+      document.documentElement.style.setProperty('--accent-hover', adjustColorBrightness(colorHex, -20));
+      document.documentElement.style.setProperty('--accent-glow', hexToRgba(colorHex, 0.35));
+      document.getElementById('accent-color-picker').value = colorHex;
+      document.getElementById('accent-hex-text').innerText = colorHex;
+      refreshActiveCharts();
+    }
+
+    function updateLineThickness(val) {
+      lineThickness = parseInt(val);
+      document.getElementById('line-thickness-slider').value = lineThickness;
+      document.getElementById('line-thick-val').innerText = `${lineThickness}px`;
+    }
+
+    function updateGlowIntensity(val) {
+      glowIntensity = parseInt(val);
+      document.getElementById('glow-slider').value = glowIntensity;
+      document.getElementById('glow-val').innerText = `${glowIntensity}%`;
+    }
+
+    function updateGlassBlur(val) {
+      glassBlur = parseInt(val);
+      document.getElementById('blur-slider').value = glassBlur;
+      document.getElementById('blur-val').innerText = `${glassBlur}px`;
+      document.documentElement.style.setProperty('--glass-blur', `${glassBlur}px`);
+    }
+
+    function hexToRgba(hex, alpha) {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function adjustColorBrightness(hex, percent) {
+      let num = parseInt(hex.replace("#",""), 16),
+      amt = Math.round(2.55 * percent),
+      R = (num >> 16) + amt,
+      B = (num >> 8 & 0x00FF) + amt,
+      G = (num & 0x0000FF) + amt;
+      return "#" + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 + (B<255?B<1?0:B:255)*0x100 + (G<255?G<1?0:G:255)).toString(16).slice(1);
+    }
+
+    function refreshActiveCharts() {
+      if (cachedScorerData) {
+        renderSpiderChart(cachedScorerData.metrics);
+        renderChartJSRadar(cachedScorerData.metrics);
+      }
+      renderProgressChart();
+    }
+
+    let currentUploadType = 'webcam';
+
+    function selectUploadType(type) {
+      currentUploadType = type;
+      const btnWebcam = document.getElementById('btn-select-webcam');
+      const btnImg = document.getElementById('btn-select-image');
+      const btnVid = document.getElementById('btn-select-video');
+      
+      const secWebcam = document.getElementById('upload-webcam-section');
+      const secImg = document.getElementById('upload-image-section');
+      const secVid = document.getElementById('upload-video-section');
+      const analyzeBtn = document.getElementById('analyze-media-btn');
+
+      btnWebcam.classList.remove('active');
+      btnImg.classList.remove('active');
+      btnVid.classList.remove('active');
+
+      secWebcam.style.display = 'none';
+      secImg.style.display = 'none';
+      secVid.style.display = 'none';
+
+      if (type === 'webcam') {
+        btnWebcam.classList.add('active');
+        secWebcam.style.display = 'flex';
+        analyzeBtn.style.display = 'none';
+      } else if (type === 'image') {
+        btnImg.classList.add('active');
+        secImg.style.display = 'flex';
+        analyzeBtn.style.display = 'inline-flex';
+        stopWebcamStream();
+      } else {
+        btnVid.classList.add('active');
+        secVid.style.display = 'flex';
+        analyzeBtn.style.display = 'inline-flex';
+        stopWebcamStream();
+      }
+    }
+
+    function switchTab(evt, tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      
+      evt.currentTarget.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+
+      if (tabId !== 'tab-scorer') {
+        stopWebcamStream();
+      }
+
+      if (tabId === 'tab2') {
+        renderProgressChart();
+      } else if (tabId === 'tab-badges') {
+        evaluateGamificationSystem();
+        fetchMicroDrills();
+      } else if (tabId === 'tab-skill-matrix') {
+        renderChartJSRadar(cachedScorerData ? cachedScorerData.metrics : null);
+      }
+    }
+
+    function calculateAngle(a, b, c) {
+      const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+      let angle = Math.abs((radians * 180.0) / Math.PI);
+      if (angle > 180.0) angle = 360.0 - angle;
+      return angle;
+    }
+
+    function calculateRealtimeScore(landmarks, throwType) {
+      const rShoulder = landmarks[12];
+      const rElbow = landmarks[14];
+      const rWrist = landmarks[16];
+      const lShoulder = landmarks[11];
+      const rHip = landmarks[24];
+      const lHip = landmarks[23];
+      const rKnee = landmarks[26];
+      const rAnkle = landmarks[28];
+
+      if (!rShoulder || !rElbow || !rWrist || !rKnee || !rAnkle) return 75;
+
+      const kneeAngle = calculateAngle(rHip, rKnee, rAnkle);
+      const elbowAngle = calculateAngle(rShoulder, rElbow, rWrist);
+      const shoulderTilt = Math.abs(rShoulder.y - lShoulder.y) * 100;
+      const hipTilt = Math.abs(rHip.y - lHip.y) * 100;
+      const rotationDelta = Math.abs(shoulderTilt - hipTilt);
+
+      document.getElementById('hud-elbow-val').innerText = `${elbowAngle.toFixed(1)}°`;
+      document.getElementById('hud-knee-val').innerText = `${kneeAngle.toFixed(1)}°`;
+
+      let rawScore = 80;
+      if (throwType === 'forehand') {
+        const stanceScore = Math.max(10, Math.min(100, 100 - Math.abs(140 - kneeAngle) * 1.5));
+        const reachScore = Math.max(10, Math.min(100, 100 - Math.abs(130 - elbowAngle) * 1.8));
+        rawScore = (stanceScore + reachScore) / 2;
+      } else {
+        const stanceScore = Math.max(10, Math.min(100, 100 - Math.abs(132 - kneeAngle) * 1.8));
+        const reachScore = Math.max(10, Math.min(100, 100 - Math.abs(165 - elbowAngle) * 1.5));
+        const coreScore = Math.max(10, Math.min(100, 100 - rotationDelta * 2.5));
+        rawScore = (stanceScore + reachScore + coreScore) / 3;
+      }
+
+      smoothedScore = (smoothedScore * 0.85) + (rawScore * 0.15);
+      return Math.round(smoothedScore);
+    }
+
+    function init3DViewport() {
+      const container = document.getElementById('threejs-canvas-container');
+      if (!container) return;
+
+      threeScene = new THREE.Scene();
+      threeCamera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+      threeCamera.position.set(0, 0, 8);
+
+      threeRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      threeRenderer.setSize(container.clientWidth, container.clientHeight);
+      threeRenderer.setPixelRatio(window.devicePixelRatio);
+      container.appendChild(threeRenderer.domElement);
+
+      threeControls = new THREE.OrbitControls(threeCamera, threeRenderer.domElement);
+      threeControls.enableDamping = true;
+      threeControls.autoRotate = true;
+      threeControls.autoRotateSpeed = 1.0;
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      threeScene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      dirLight.position.set(5, 10, 7);
+      threeScene.add(dirLight);
+
+      const defaultJoints = {
+        0: [0, 1.8, 0], 11: [-0.6, 1.2, 0], 12: [0.6, 1.2, 0],
+        13: [-1.0, 0.5, 0.2], 14: [1.2, 0.8, 0.4], 15: [-1.2, -0.1, 0.3], 16: [1.8, 0.9, 0.6],
+        23: [-0.4, 0.0, 0], 24: [0.4, 0.0, 0], 25: [-0.5, -1.0, 0], 26: [0.5, -1.0, 0],
+        27: [-0.5, -2.0, 0], 28: [0.5, -2.0, 0]
+      };
+      update3DPoseSkeleton(defaultJoints);
+
+      function animate() {
+        requestAnimationFrame(animate);
+        threeControls.update();
+        threeRenderer.render(threeScene, threeCamera);
+      }
+      animate();
+
+      window.addEventListener('resize', () => {
+        if (!container) return;
+        threeCamera.aspect = container.clientWidth / container.clientHeight;
+        threeCamera.updateProjectionMatrix();
+        threeRenderer.setSize(container.clientWidth, container.clientHeight);
+      });
+    }
+
+    function update3DPoseSkeleton(keypoints3D) {
+      if (!threeScene) return;
+
+      Object.values(jointSpheres).forEach(s => threeScene.remove(s));
+      boneCylinders.forEach(c => threeScene.remove(c));
+      jointSpheres = {};
+      boneCylinders = [];
+
+      const sphereGeo = new THREE.SphereGeometry(0.08, 16, 16);
+      const glowMat = new THREE.MeshPhongMaterial({
+        color: new THREE.Color(currentAccentColor),
+        emissive: new THREE.Color(currentAccentColor),
+        emissiveIntensity: 0.6,
+        shininess: 100
+      });
+
+      Object.keys(keypoints3D).forEach(jointIdx => {
+        const pt = keypoints3D[jointIdx];
+        const sphere = new THREE.Mesh(sphereGeo, glowMat);
+        sphere.position.set(pt[0], pt[1], pt[2]);
+        threeScene.add(sphere);
+        jointSpheres[jointIdx] = sphere;
+      });
+
+      const connections = [
+        [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
+        [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]
+      ];
+
+      const boneMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 });
+
+      connections.forEach(([p1, p2]) => {
+        if (jointSpheres[p1] && jointSpheres[p2]) {
+          const v1 = jointSpheres[p1].position;
+          const v2 = jointSpheres[p2].position;
+          const distance = v1.distanceTo(v2);
+
+          const cylGeo = new THREE.CylinderGeometry(0.02 * (lineThickness / 3), 0.02 * (lineThickness / 3), distance, 8);
+          const cyl = new THREE.Mesh(cylGeo, boneMat);
+
+          cyl.position.copy(v1).add(v2).multiplyScalar(0.5);
+          cyl.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v2.clone().sub(v1).normalize());
+
+          threeScene.add(cyl);
+          boneCylinders.push(cyl);
+        }
+      });
+    }
+
+    async function toggleWebcamStream() {
+      if (isWebcamActive) {
+        stopWebcamStream();
+      } else {
+        await startWebcamStream();
+      }
+    }
+
+    async function startWebcamStream() {
+      const videoElement = document.getElementById('webcam-video');
+      const canvasElement = document.getElementById('webcam-canvas');
+      const canvasCtx = canvasElement.getContext('2d');
+      const webcamBtn = document.getElementById('webcam-toggle-btn');
+
+      if (!poseTracker) {
+        poseTracker = new Pose({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+        });
+
+        poseTracker.setOptions({
+          modelComplexity: 1,
+          smoothLandmarks: true,
+          enableSegmentation: false,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+
+        poseTracker.onResults((results) => {
+          canvasElement.width = videoElement.videoWidth;
+          canvasElement.height = videoElement.videoHeight;
+
+          canvasCtx.save();
+          canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+          if (results.poseLandmarks) {
+            drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, { color: currentAccentColor, lineWidth: lineThickness });
+            drawLandmarks(canvasCtx, results.poseLandmarks, { color: '#ffffff', fillColor: currentAccentColor, lineWidth: 2, radius: lineThickness + 2 });
+
+            const selectedThrow = document.getElementById('throw-type-select').value;
+            const currentScore = calculateRealtimeScore(results.poseLandmarks, selectedThrow);
+            
+            const badge = document.getElementById('live-score-badge');
+            badge.innerText = `Score: ${currentScore} / 100`;
+            badge.style.borderColor = currentScore >= 80 ? '#10b981' : currentAccentColor;
+
+            const kps3d = {};
+            [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28].forEach(idx => {
+              const lm = results.poseLandmarks[idx];
+              if (lm) {
+                kps3d[idx] = [(lm.x - 0.5) * 4.0, (0.5 - lm.y) * 4.0, -lm.z * 4.0];
+              }
+            });
+            update3DPoseSkeleton(kps3d);
+          }
+          canvasCtx.restore();
+        });
+      }
+
+      cameraUtils = new Camera(videoElement, {
+        onFrame: async () => {
+          if (isWebcamActive) {
+            await poseTracker.send({ image: videoElement });
+          }
+        },
+        width: 640,
+        height: 480
+      });
+
+      try {
+        await cameraUtils.start();
+        isWebcamActive = true;
+        webcamBtn.innerHTML = `<i class="fa-solid fa-power-off mr-1"></i> Stop Camera`;
+        webcamBtn.classList.add('btn-secondary');
+      } catch (err) {
+        alert("Camera access error: " + err.message);
+      }
+    }
+
+    function stopWebcamStream() {
+      if (cameraUtils) {
+        cameraUtils.stop();
+      }
+      isWebcamActive = false;
+      const webcamBtn = document.getElementById('webcam-toggle-btn');
+      if (webcamBtn) {
+        webcamBtn.innerHTML = `<i class="fa-solid fa-power-off mr-1"></i> Start Camera`;
+      }
+      const canvasElement = document.getElementById('webcam-canvas');
+      if (canvasElement) {
+        const canvasCtx = canvasElement.getContext('2d');
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      }
+    }
+
+    function previewScoreMedia(event, type) {
+      const file = event.target.files[0];
+      const box = document.getElementById(type === 'img' ? 'score-img-box' : 'score-vid-box');
+      const controls = document.getElementById('vid-controls');
+      if (!file) return;
+
+      box.innerHTML = '';
+      if (file.type.startsWith('video/')) {
+        const video = document.createElement('video');
+        video.src = URL.createObjectURL(file);
+        video.controls = true;
+        video.autoplay = false;
+        activeVideoElem = video;
+        controls.style.display = 'flex';
+        box.appendChild(video);
+      } else {
+        if (controls) controls.style.display = 'none';
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        box.appendChild(img);
+      }
+    }
+
+    function changePlaybackSpeed(speedVal) {
+      if (activeVideoElem) {
+        activeVideoElem.playbackRate = parseFloat(speedVal);
+      }
+    }
+
+    function stepFrame(frameDelta) {
+      if (activeVideoElem) {
+        activeVideoElem.pause();
+        activeVideoElem.currentTime += frameDelta * (1 / 30);
+      }
+    }
+
+    function renderSpiderChart(metrics) {
+      const categories = Object.keys(metrics);
+      const scores = Object.values(metrics);
+      categories.push(categories[0]);
+      scores.push(scores[0]);
+
+      const textColor = currentTheme === 'dark' ? '#ffffff' : '#1e293b';
+      const gridColor = currentTheme === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)';
+
+      const spiderData = [{
+        type: 'scatterpolar',
+        r: scores,
+        theta: categories,
+        fill: 'toself',
+        fillcolor: hexToRgba(currentAccentColor, 0.35),
+        line: { color: currentAccentColor, width: 2 }
+      }];
+
+      const spiderLayout = {
+        polar: {
+          radialaxis: { visible: true, range: [0, 100], gridcolor: gridColor, tickfont: { color: textColor } },
+          angularaxis: { gridcolor: gridColor, tickfont: { color: textColor } },
+          bgcolor: 'rgba(0,0,0,0)'
+        },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: textColor },
+        height: 380,
+        margin: { t: 30, b: 30, l: 40, r: 40 }
+      };
+
+      Plotly.newPlot('spider-chart', spiderData, spiderLayout, { responsive: true });
+    }
+
+    function renderChartJSRadar(userMetrics) {
+      const canvas = document.getElementById('chartjs-radar-canvas');
+      if (!canvas) return;
+
+      const labels = ['Stance & Balance', 'Reach-back Extension', 'Core Rotation', 'Release Plane', 'Follow-through'];
+      const userScores = userMetrics 
+        ? labels.map(l => userMetrics[l] || 75)
+        : [75, 82, 68, 88, 79];
+
+      const proBenchmark = [95, 98, 94, 96, 92];
+
+      if (chartjsRadar) {
+        chartjsRadar.destroy();
+      }
+
+      chartjsRadar = new Chart(canvas, {
+        type: 'radar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'User Form',
+              data: userScores,
+              backgroundColor: hexToRgba(currentAccentColor, 0.3),
+              borderColor: currentAccentColor,
+              borderWidth: 2,
+              pointBackgroundColor: currentAccentColor
+            },
+            {
+              label: 'Pro Elite Standard',
+              data: proBenchmark,
+              backgroundColor: 'rgba(16, 185, 129, 0.15)',
+              borderColor: '#10b981',
+              borderWidth: 2,
+              pointBackgroundColor: '#10b981'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          scales: {
+            r: {
+              angleLines: { color: 'rgba(255, 255, 255, 0.15)' },
+              grid: { color: 'rgba(255, 255, 255, 0.15)' },
+              pointLabels: { color: currentTheme === 'dark' ? '#cbd5e1' : '#334155', font: { size: 10 } },
+              ticks: { display: false },
+              suggestedMin: 0,
+              suggestedMax: 100
+            }
+          },
+          plugins: {
+            legend: { labels: { color: currentTheme === 'dark' ? '#ffffff' : '#000000', font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+    function toggleSkillNode(nodeId) {
+      const node = document.getElementById(nodeId);
+      if (!node) return;
+      if (node.classList.contains('locked')) {
+        node.classList.remove('locked');
+        node.classList.add('unlocked');
+        const statusSpan = document.getElementById(`${nodeId}-status`);
+        if (statusSpan) {
+          statusSpan.innerHTML = `<i class="fa-solid fa-lock-open mr-1"></i>Unlocked`;
+          statusSpan.className = 'text-xs font-bold uppercase text-emerald-400';
+        }
+      }
+    }
+
+    function renderProgressChart() {
+      const history = JSON.parse(localStorage.getItem('discsight_throw_history') || '[]');
+      const emptyMsg = document.getElementById('progress-empty-msg');
+
+      if (history.length === 0) {
+        emptyMsg.style.display = 'block';
+        Plotly.purge('progress-chart');
+        Plotly.purge('progress-metrics-chart');
+        return;
+      }
+
+      emptyMsg.style.display = 'none';
+
+      const textColor = currentTheme === 'dark' ? '#ffffff' : '#1e293b';
+      const gridColor = currentTheme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+      const xLabels = history.map(item => item.label);
+
+      const traceOverall = {
+        x: xLabels,
+        y: history.map(item => item.overallScore),
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'Overall Score',
+        line: { color: currentAccentColor, width: 3 },
+        marker: { size: 8 }
+      };
+
+      const layoutOverall = {
+        title: { text: 'Overall Mechanics Score Progression', font: { color: textColor } },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        xaxis: { font: { color: textColor }, gridcolor: gridColor },
+        yaxis: { font: { color: textColor }, gridcolor: gridColor, range: [0, 100] },
+        font: { color: textColor },
+        height: 300
+      };
+
+      Plotly.newPlot('progress-chart', [traceOverall], layoutOverall, { responsive: true });
+
+      const metricKeys = Object.keys(history[0].metrics);
+      const palette = [currentAccentColor, '#3b82f6', '#f59e0b', '#8b5cf6', '#10b981'];
+
+      const metricTraces = metricKeys.map((key, index) => ({
+        x: xLabels,
+        y: history.map(item => item.metrics[key]),
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: key,
+        line: { color: palette[index % palette.length], width: 2 }
+      }));
+
+      const layoutMetrics = {
+        title: { text: 'Sub-Metric Breakdown Progression', font: { color: textColor } },
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        xaxis: { font: { color: textColor }, gridcolor: gridColor },
+        yaxis: { font: { color: textColor }, gridcolor: gridColor, range: [0, 100] },
+        legend: { font: { color: textColor } },
+        font: { color: textColor },
+        height: 350
+      };
+
+      Plotly.newPlot('progress-metrics-chart', metricTraces, layoutMetrics, { responsive: true });
+    }
+
+    async function runThrowScorer() {
+      const imgFile = document.getElementById('score-img-input').files[0];
+      const vidFile = document.getElementById('score-vid-input').files[0];
+      const throwType = document.getElementById('throw-type-select').value;
+      const btn = document.getElementById('analyze-media-btn');
+
+      if (currentUploadType === 'image' && !imgFile) {
+        alert("Please select an image file to analyze.");
+        return;
+      }
+      if (currentUploadType === 'video' && !vidFile) {
+        alert("Please select a video file to analyze.");
+        return;
+      }
+
+      const formData = new FormData();
+      if (currentUploadType === 'image') {
+        formData.append('media', imgFile);
+      } else {
+        formData.append('media', vidFile);
+      }
+      formData.append('throw_type', throwType);
+      formData.append('line_thickness', lineThickness);
+      formData.append('accent_hex', currentAccentColor);
+      formData.append('glow_intensity', glowIntensity);
+
+      const originalBtnContent = btn.innerHTML;
+      btn.disabled = true;
+      btn.classList.add('opacity-75', 'cursor-not-allowed');
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Analyzing Throw Biomechanics...`;
+
+      try {
+        const response = await fetch('/api/score-throw', { method: 'POST', body: formData });
+        const data = await response.json();
+
+        if (response.ok) {
+          cachedScorerData = data;
+          document.getElementById('scorer-results').style.display = 'block';
+          document.getElementById('overall-score-val').innerText = `${data.overall_score} / 100`;
+
+          if (data.pose_image) {
+            document.getElementById('skeleton-card').style.display = 'block';
+            const skelBox = document.getElementById('scorer-skeleton-box');
+            skelBox.innerHTML = `<img src="${data.pose_image}" alt="Pose Skeleton Overlay">`;
+          } else {
+            document.getElementById('skeleton-card').style.display = 'none';
+          }
+
+          if (data.keypoints_3d) {
+            update3DPoseSkeleton(data.keypoints_3d);
+          }
+
+          document.getElementById('ai-feedback-text').innerText = data.ai_feedback;
+          renderSpiderChart(data.metrics);
+          renderChartJSRadar(data.metrics);
+          
+          if (data.custom_drill) {
+            displayCustomDrill(data.custom_drill);
+          }
+
+          saveAttemptToHistory(data.overall_score, data.metrics);
+          addExperienceXP(50);
+          evaluateGamificationSystem();
+
+          document.getElementById('scorer-results').scrollIntoView({ behavior: 'smooth' });
+        } else {
+          alert("Error: " + (data.error || "Failed to score throw"));
+        }
+      } catch (e) {
+        alert("Failed to connect to API server: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-75', 'cursor-not-allowed');
+        btn.innerHTML = originalBtnContent;
+      }
+    }
+
+    function displayCustomDrill(drill) {
+      document.getElementById('drill-target-subscore').innerText = `${drill.targeted_subscore} (${drill.subscore_value}/100)`;
+      document.getElementById('drill-title').innerText = drill.drill_title;
+      document.getElementById('drill-duration').innerText = drill.duration;
+      document.getElementById('drill-desc').innerText = drill.description;
+      
+      const stepsBox = document.getElementById('drill-steps');
+      stepsBox.innerHTML = '';
+      drill.steps.forEach(step => {
+        const stepElem = document.createElement('div');
+        stepElem.className = 'p-2.5 rounded-lg';
+        stepElem.style.background = 'var(--card-inner-bg)';
+        stepElem.style.border = '1px solid var(--border-color)';
+        stepElem.innerText = step;
+        stepsBox.appendChild(stepElem);
+      });
+
+      document.getElementById('drill-video-frame').src = drill.video_url;
+    }
+
+    function saveAttemptToHistory(overallScore, metrics) {
+      const history = JSON.parse(localStorage.getItem('discsight_throw_history') || '[]');
+      const attemptNum = history.length + 1;
+      const now = new Date();
+      const timestamp = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      history.push({
+        label: `#${attemptNum} (${timestamp})`,
+        date: now.toISOString().split('T')[0],
+        overallScore: overallScore,
+        metrics: metrics
+      });
+
+      localStorage.setItem('discsight_throw_history', JSON.stringify(history));
+    }
+
+    function addExperienceXP(xpAmount) {
+      let currentXP = parseInt(localStorage.getItem('discsight_xp') || '0');
+      currentXP += xpAmount;
+      localStorage.setItem('discsight_xp', currentXP);
+      evaluateGamificationSystem();
+    }
+
+    function evaluateGamificationSystem() {
+      const history = JSON.parse(localStorage.getItem('discsight_throw_history') || '[]');
+      
+      const totalXP = parseInt(localStorage.getItem('discsight_xp') || '0');
+      const currentLevel = Math.floor(totalXP / 500) + 1;
+      const levelProgressXP = totalXP % 500;
+      const progressPercent = (levelProgressXP / 500) * 100;
+
+      document.getElementById('user-level-text').innerText = `Level ${currentLevel} Thrower`;
+      document.getElementById('xp-bar-fill').style.width = `${progressPercent}%`;
+      document.getElementById('xp-num-text').innerText = `${levelProgressXP} / 500 XP`;
+
+      const uniqueDays = [...new Set(history.map(item => item.date))].sort();
+      let maxStreak = 0;
+      let currStreak = 0;
+      for (let i = 0; i < uniqueDays.length; i++) {
+        if (i === 0) {
+          currStreak = 1;
+        } else {
+          const prev = new Date(uniqueDays[i - 1]);
+          const curr = new Date(uniqueDays[i]);
+          const diffDays = Math.round((curr - prev) / (1000 * 60 * 60 * 24));
+          if (diffDays === 1) {
+            currStreak++;
+          } else {
+            currStreak = 1;
+          }
+        }
+        if (currStreak > maxStreak) maxStreak = currStreak;
+      }
+
+      document.getElementById('current-streak-val').innerText = `${maxStreak} Days`;
+
+      if (history.length === 0) return;
+
+      const hasElbowSnap = history.some(item => item.metrics['Reach-back Extension'] >= 85);
+      toggleBadge('badge-elbow-snap', 'status-elbow-snap', hasElbowSnap);
+
+      const hasBraceLock = history.some(item => item.metrics['Stance & Balance'] >= 85);
+      toggleBadge('badge-brace-lock', 'status-brace-lock', hasBraceLock);
+
+      const hasHighRotation = history.some(item => item.metrics['Core Rotation'] >= 90);
+      toggleBadge('badge-rotation', 'status-rotation', hasHighRotation);
+
+      const hasEliteOverall = history.some(item => item.overallScore >= 85);
+      toggleBadge('badge-century', 'status-century', hasEliteOverall);
+
+      toggleBadge('badge-streak', 'status-streak', maxStreak >= 5);
+
+      if (history.length >= 2) {
+        const firstReach = history[0].metrics['Reach-back Extension'];
+        const maxReach = Math.max(...history.map(item => item.metrics['Reach-back Extension']));
+        const improvement = firstReach > 0 ? ((maxReach - firstReach) / firstReach) * 100 : 0;
+        toggleBadge('badge-reach', 'status-reach', improvement >= 15);
+      }
+    }
+
+    function toggleBadge(badgeId, statusTextId, isUnlocked) {
+      const elem = document.getElementById(badgeId);
+      const statusText = document.getElementById(statusTextId);
+      if (!elem) return;
+      if (isUnlocked) {
+        elem.classList.add('unlocked');
+        if (statusText) {
+          statusText.innerText = 'Unlocked ✓';
+          statusText.style.color = '#10b981';
+        }
+      } else {
+        elem.classList.remove('unlocked');
+        if (statusText) {
+          statusText.innerText = 'Locked';
+          statusText.style.color = 'var(--accent-color)';
+        }
+      }
+    }
+
+    async function fetchMicroDrills() {
+      try {
+        const res = await fetch('/api/micro-drills');
+        const data = await res.json();
+        const container = document.getElementById('micro-drills-container');
+        container.innerHTML = '';
+
+        data.micro_drills.forEach(drill => {
+          const drillCard = document.createElement('div');
+          drillCard.className = 'micro-drill-card';
+          drillCard.innerHTML = `
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded" style="background: var(--input-bg); color: var(--accent-color);">${drill.tagline}</span>
+                <span class="text-xs font-bold" style="color: #f59e0b;"><i class="fa-solid fa-star mr-1"></i>+${drill.xp_reward} XP</span>
+              </div>
+              <h4 class="font-bold text-sm mb-1">${drill.title}</h4>
+              <p class="text-xs mb-4" style="color: var(--text-muted); line-height: 1.4;">${drill.description}</p>
+            </div>
+            <button class="btn btn-secondary text-xs w-full py-2" onclick="completeMicroDrill('${drill.id}', ${drill.xp_reward}, this)">
+              <i class="fa-solid fa-check mr-1"></i> Mark Complete
+            </button>
+          `;
+          container.appendChild(drillCard);
+        });
+      } catch (err) {
+        console.error("Micro drills error:", err);
+      }
+    }
+
+    function completeMicroDrill(drillId, xpReward, btnElement) {
+      addExperienceXP(xpReward);
+      btnElement.disabled = true;
+      btnElement.innerText = 'Completed ✓';
+      btnElement.style.background = '#10b981';
+      btnElement.style.color = '#fff';
+      btnElement.style.borderColor = '#10b981';
+    }
+
+    function clearProgressHistory() {
+      localStorage.removeItem('discsight_throw_history');
+      localStorage.removeItem('discsight_xp');
+      renderProgressChart();
+      evaluateGamificationSystem();
+    }
+
+    async function compareProForm() {
+      const proFile = document.getElementById('ref-img-input')?.files[0];
+      const userFile = document.getElementById('usr-img-input')?.files[0];
+      const throwType = document.getElementById('throw-type-select')?.value || 'Backhand';
+      const btn = document.getElementById('compare-pro-btn');
+
+      if (!userFile) {
+        alert("Please upload your throw file first.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('user_media', userFile);
+      if (proFile) formData.append('pro_media', proFile);
+      formData.append('throw_type', throwType);
+      formData.append('line_thickness', lineThickness);
+      formData.append('accent_hex', currentAccentColor);
+      formData.append('glow_intensity', glowIntensity);
+
+      const originalBtnText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Processing Comparison...`;
+
+      try {
+        const response = await fetch('/api/compare-pro', { 
+          method: 'POST', 
+          body: formData 
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          alert("Comparison Error: " + (data.error || "Failed to compare throws."));
+          return;
+        }
+
+        if (data.pro_pose_image && document.getElementById('ref-preview')) {
+          document.getElementById('ref-preview').innerHTML = `<img src="${data.pro_pose_image}" alt="Pro Pose Overlay">`;
+        }
+        if (data.user_pose_image && document.getElementById('usr-preview')) {
+          document.getElementById('usr-preview').innerHTML = `<img src="${data.user_pose_image}" alt="User Pose Overlay">`;
+        }
+        if (data.analysis_text) {
+          const summaryContainer = document.getElementById('ai-summary-container');
+          const summaryText = document.getElementById('ai-summary-text');
+          if (summaryContainer && summaryText) {
+            summaryText.innerText = data.analysis_text;
+            summaryContainer.style.display = 'block';
+          }
+        }
+
+      } catch (err) {
+        console.error("Fetch Exception:", err);
+        alert("Failed to communicate with server: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnText;
+      }
+    }
+
+    const chatHistory = [];
+    async function sendChatMessage() {
+      const inputElem = document.getElementById('chat-input');
+      const text = inputElem.value.trim();
+      if (!text) return;
+
+      const chatBox = document.getElementById('chat-messages');
+      chatBox.innerHTML += `<div class="chat-msg user">${text}</div>`;
+      chatHistory.push({ role: 'user', content: text });
+      inputElem.value = '';
+
+      const botDiv = document.createElement('div');
+      botDiv.className = 'chat-msg assistant';
+      botDiv.innerText = 'Thinking...';
+      chatBox.appendChild(botDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: chatHistory })
+        });
+        const data = await response.json();
+        botDiv.innerText = data.response;
+        chatHistory.push({ role: 'assistant', content: data.response });
+      } catch (e) {
+        botDiv.innerText = "Error fetching response from AI coach.";
+      }
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      init3DViewport();
+      renderProgressChart();
+      evaluateGamificationSystem();
+      fetchMicroDrills();
+      renderChartJSRadar();
+    });
+  </script>
+</body>
+</html>

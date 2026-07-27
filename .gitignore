@@ -1,0 +1,5 @@
+.venv/
+.env
+ultimate_biomechanics_data.csv
+ultimate_form_model.pkl
+.gitattributes
