@@ -106,3 +106,6 @@ def train_disc_sight_model():
 
 if __name__ == "__main__":
     train_disc_sight_model()
+
+joblib.dump(model, 'ultimate_form_model.pkl')
+print("✓ Model successfully exported to ultimate_form_model.pkl")
