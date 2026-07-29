@@ -12,6 +12,23 @@ import numpy as np
 from google import genai
 from google.genai import types
 
+# Suppress non-critical C++ / Protobuf warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+warnings.filterwarnings('ignore', category=UserWarning, module='google.protobuf')
+
+app = Flask(__name__)
+
+# --- MODEL LOADING BLOCK (PLACE HERE) ---
+model_path = os.path.join(os.path.dirname(__file__), 'ultimate_form_model.pkl')
+
+try:
+    model = joblib.load(model_path)
+    print("✓ Random Forest model successfully loaded.")
+except Exception as e:
+    print(f"⚠️ Warning: Could not load 'ultimate_form_model.pkl'. Error: {e}")
+    model = None
+# ----------------------------------------
+
 # Try importing MediaPipe Pose
 try:
     import mediapipe as mp
