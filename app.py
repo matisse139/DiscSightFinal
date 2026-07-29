@@ -3,9 +3,10 @@ import hashlib
 import json
 import math
 import os
-import warnings
 import tempfile
+import warnings
 import cv2
+
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import joblib
@@ -17,29 +18,7 @@ from google.genai import types
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.filterwarnings('ignore', category=UserWarning, module='google.protobuf')
 
-app = Flask(__name__)
-
-# --- MODEL LOADING BLOCK (PLACE HERE) ---
-model_path = os.path.join(os.path.dirname(__file__), 'ultimate_form_model.pkl')
-
-try:
-    model = joblib.load(model_path)
-    print("✓ Random Forest model successfully loaded.")
-except Exception as e:
-    print(f"⚠️ Warning: Could not load 'ultimate_form_model.pkl'. Error: {e}")
-    model = None
-# ----------------------------------------
-
-# Try importing MediaPipe Pose
-try:
-    import mediapipe as mp
-    mp_pose = mp.solutions.pose
-    MP_AVAILABLE = True
-    print("✓ MediaPipe Pose successfully initialized.")
-except ImportError:
-    MP_AVAILABLE = False
-    print("⚠️ Warning: MediaPipe is not installed. Run 'pip install mediapipe' for real joint tracking. Falling back to dynamic heuristics.")
-
+# Initialize Flask App
 app = Flask(__name__, static_folder=".")
 CORS(app)
 
@@ -49,13 +28,32 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", ""))
 # ==========================================
 # LOAD TRAINED MACHINE LEARNING MODEL
 # ==========================================
-MODEL_PATH = "ultimate_form_model.pkl"
+MODEL_PATH = os.path.join(os.path.dirname(__file__), 'ultimate_form_model.pkl')
 try:
     ml_model = joblib.load(MODEL_PATH)
     print(f"✓ ML Model successfully loaded from {MODEL_PATH}")
 except Exception as e:
     ml_model = None
     print(f"⚠️ Warning: Could not load '{MODEL_PATH}'. Error: {e}")
+
+# ==========================================
+# MEDIAPIPE INITIALIZATION
+# ==========================================
+try:
+    import mediapipe as mp
+    mp_pose = mp.solutions.pose
+    pose_tracker = mp_pose.Pose(
+        static_image_mode=True,
+        model_complexity=1,
+        enable_segmentation=False,
+        min_detection_confidence=0.5
+    )
+    MP_AVAILABLE = True
+    print("✓ MediaPipe Pose successfully initialized.")
+except ImportError:
+    pose_tracker = None
+    MP_AVAILABLE = False
+    print("⚠️ Warning: MediaPipe is not installed. Falling back to dynamic heuristics.")
 
 
 # ==========================================
@@ -188,27 +186,21 @@ def extract_keypoints_mediapipe(frame):
     keypoints = {}
     keypoints_3d = {}
 
-    if MP_AVAILABLE:
-        with mp_pose.Pose(
-            static_image_mode=True,
-            model_complexity=1,
-            enable_segmentation=False,
-            min_detection_confidence=0.5
-        ) as pose:
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = pose.process(rgb_frame)
+    if MP_AVAILABLE and pose_tracker:
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = pose_tracker.process(rgb_frame)
 
-            if results.pose_landmarks:
-                target_landmarks = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]
-                for idx in target_landmarks:
-                    lm = results.pose_landmarks.landmark[idx]
-                    keypoints[idx] = [int(lm.x * w), int(lm.y * h)]
-                    keypoints_3d[idx] = [
-                        float((lm.x - 0.5) * 4.0),
-                        float((0.5 - lm.y) * 4.0),
-                        float(-lm.z * 4.0)
-                    ]
-                return keypoints, keypoints_3d
+        if results.pose_landmarks:
+            target_landmarks = [0, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]
+            for idx in target_landmarks:
+                lm = results.pose_landmarks.landmark[idx]
+                keypoints[idx] = [int(lm.x * w), int(lm.y * h)]
+                keypoints_3d[idx] = [
+                    float((lm.x - 0.5) * 4.0),
+                    float((0.5 - lm.y) * 4.0),
+                    float(-lm.z * 4.0)
+                ]
+            return keypoints, keypoints_3d
 
     center_x = w // 2
     top_y = int(h * 0.15)
@@ -231,7 +223,7 @@ def extract_keypoints_mediapipe(frame):
     }
     
     fallback_3d = {
-        idx: [float((pt[0] - center_x) / 100.0), float((h/2 - pt[1]) / 100.0), 0.0]
+        idx: [float((pt[0] - center_x) / 100.0), float((h / 2 - pt[1]) / 100.0), 0.0]
         for idx, pt in fallback_2d.items()
     }
     return fallback_2d, fallback_3d
@@ -369,15 +361,28 @@ def extract_features_from_keypoints(keypoints):
 
 
 def compute_ml_kinematic_scores(phase_keypoints, throw_type="backhand"):
-    """Computes biomechanics scores against throw-type targets."""
+    """Computes biomechanics scores against throw-type targets or via loaded ML model."""
     kps = phase_keypoints["release"]
     feats = extract_features_from_keypoints(kps)
-    
+
     knee_angle = feats['knee_angle']
     elbow_angle = feats['elbow_angle']
     rotation_delta = feats['rotation_delta']
     wrist_elevation = feats['wrist_elevation']
     follow_angle = feats['follow_angle']
+
+    # Optional inference with ML Model if present
+    if ml_model is not None:
+        try:
+            feature_vector = np.array([[knee_angle, elbow_angle, feats['shoulder_tilt'], 
+                                        feats['hip_tilt'], rotation_delta, wrist_elevation, 
+                                        follow_angle, feats['wrist_offset']]])
+            # Assuming model predicts overall score directly or array of subscores
+            predicted_score = ml_model.predict(feature_vector)[0]
+            if isinstance(predicted_score, (int, float, np.number)):
+                overall_score = round(float(predicted_score), 1)
+        except Exception:
+            ml_model_active = False
 
     if throw_type == "forehand":
         stance_score = max(10, min(100, 100 - abs(140 - knee_angle) * 1.5))
@@ -391,7 +396,7 @@ def compute_ml_kinematic_scores(phase_keypoints, throw_type="backhand"):
         core_score = max(10, min(100, 100 - rotation_delta * 3.0))
         release_score = max(10, min(100, 100 - abs(wrist_elevation - 40) * 1.8))
         follow_score = max(10, min(100, 100 - abs(160 - follow_angle) * 1.4))
-    else: # Default Backhand
+    else:  # Default Backhand
         stance_score = max(10, min(100, 100 - abs(132 - knee_angle) * 1.8))
         reach_score = max(10, min(100, 100 - abs(165 - elbow_angle) * 1.5))
         core_score = max(10, min(100, 100 - rotation_delta * 2.5))
@@ -489,7 +494,7 @@ def score_throw():
 
     try:
         response = client.models.generate_content(
-            model="gemini-3.5-flash",
+            model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 system_instruction="You are a strict Ultimate Frisbee biomechanics instructor.",
@@ -531,7 +536,7 @@ def ai_chat():
 
     try:
         response = client.models.generate_content(
-            model="gemini-3.5-flash",
+            model="gemini-2.5-flash",
             contents=formatted_contents,
             config=types.GenerateContentConfig(
                 system_instruction="You are DiscSight AI Coach, an expert Ultimate Frisbee instructor.",
