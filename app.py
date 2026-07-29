@@ -3,6 +3,7 @@ import hashlib
 import json
 import math
 import os
+import warnings
 import tempfile
 import cv2
 from flask import Flask, jsonify, request, send_from_directory
