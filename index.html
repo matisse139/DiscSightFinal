@@ -608,7 +608,7 @@
     }
 
     .neon-indicator {
-      width: 10px;
+      width: 100px;
       height: 10px;
       border-radius: 50%;
       background-color: #10b981;
@@ -757,7 +757,7 @@
       </select>
     </div>
 
-    <!-- Aesthetic Customization Studio (Theme Engine) -->
+    <!-- Dynamic Aesthetic Controls -->
     <div class="form-group">
       <label><i class="fa-solid fa-palette mr-1"></i> Theme Presets</label>
       <div class="preset-grid">
@@ -774,6 +774,21 @@
         <input type="color" id="accent-color-picker" value="#ef4444" onchange="updateAccentColor(this.value)">
         <span style="font-size: 0.85rem; font-weight: 600;" id="accent-hex-text">#ef4444</span>
       </div>
+    </div>
+
+    <div class="form-group">
+      <label>Skeleton Line Thickness (<span id="line-thick-val">3px</span>)</label>
+      <input type="range" id="line-thickness-slider" min="1" max="10" value="3" oninput="updateLineThickness(this.value)">
+    </div>
+
+    <div class="form-group">
+      <label>Glow Intensity (<span id="glow-val">50%</span>)</label>
+      <input type="range" id="glow-slider" min="0" max="100" value="50" oninput="updateGlowIntensity(this.value)">
+    </div>
+
+    <div class="form-group">
+      <label>Glass Blur (<span id="blur-val">16px</span>)</label>
+      <input type="range" id="blur-slider" min="0" max="40" value="16" oninput="updateGlassBlur(this.value)">
     </div>
 
     <div class="form-group">
@@ -1187,6 +1202,10 @@
     let jointSpheres = {};
     let boneCylinders = [];
     let chartjsRadar = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      init3DViewport();
+    });
 
     function toggleTheme() {
       currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -2102,19 +2121,12 @@
         const data = await response.json();
         botDiv.innerText = data.response;
         chatHistory.push({ role: 'assistant', content: data.response });
-      } catch (e) {
-        botDiv.innerText = "Error fetching response from AI coach.";
+      } catch (err) {
+        botDiv.innerText = "Error contacting coach backend.";
+        console.error("Chat error:", err);
       }
       chatBox.scrollTop = chatBox.scrollHeight;
     }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      init3DViewport();
-      renderProgressChart();
-      evaluateGamificationSystem();
-      fetchMicroDrills();
-      renderChartJSRadar();
-    });
   </script>
 </body>
 </html>
