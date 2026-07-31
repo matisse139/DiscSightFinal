@@ -1,10 +1,9 @@
 import base64
-import hashlib
 import json
 import math
 import os
-import warnings
 import tempfile
+import warnings
 import cv2
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
@@ -17,18 +16,12 @@ from google.genai import types
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.filterwarnings('ignore', category=UserWarning, module='google.protobuf')
 
-app = Flask(__name__)
+# Initialize Flask App
+app = Flask(__name__, static_folder=".")
+CORS(app)
 
-# --- MODEL LOADING BLOCK (PLACE HERE) ---
-model_path = os.path.join(os.path.dirname(__file__), 'ultimate_form_model.pkl')
-
-try:
-    model = joblib.load(model_path)
-    print("✓ Random Forest model successfully loaded.")
-except Exception as e:
-    print(f"⚠️ Warning: Could not load 'ultimate_form_model.pkl'. Error: {e}")
-    model = None
-# ----------------------------------------
+# Initialize Google GenAI client
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", ""))
 
 # Try importing MediaPipe Pose
 try:
@@ -40,23 +33,14 @@ except ImportError:
     MP_AVAILABLE = False
     print("⚠️ Warning: MediaPipe is not installed. Run 'pip install mediapipe' for real joint tracking. Falling back to dynamic heuristics.")
 
-app = Flask(__name__, static_folder=".")
-CORS(app)
-
-# Initialize Google GenAI client
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", ""))
-
-# ==========================================
-# LOAD TRAINED MACHINE LEARNING MODEL
-# ==========================================
-MODEL_PATH = "ultimate_form_model.pkl"
+# --- MODEL LOADING BLOCK ---
+MODEL_PATH = os.path.join(os.path.dirname(__file__), 'ultimate_form_model.pkl')
 try:
     ml_model = joblib.load(MODEL_PATH)
     print(f"✓ ML Model successfully loaded from {MODEL_PATH}")
 except Exception as e:
     ml_model = None
     print(f"⚠️ Warning: Could not load '{MODEL_PATH}'. Error: {e}")
-
 
 # ==========================================
 # DRILL & GAMIFICATION KNOWLEDGE BASE
@@ -153,7 +137,7 @@ MICRO_DRILLS = [
         "tagline": "Disc Trajectory Precision",
         "target_metric": "Release Plane",
         "target_score": 85,
-        "description": "Execute 20 flat-plane wrist snaps along a eye-level horizontal tape line to eliminate hyzer wobble.",
+        "description": "Execute 20 flat-plane wrist snaps along an eye-level horizontal tape line to eliminate hyzer wobble.",
         "xp_reward": 150
     }
 ]
@@ -161,13 +145,16 @@ MICRO_DRILLS = [
 
 def hex_to_bgr(hex_str):
     """Converts a hex string (#RRGGBB) to OpenCV BGR format."""
-    hex_str = hex_str.lstrip('#')
+    hex_str = str(hex_str).lstrip('#')
     if len(hex_str) != 6:
         return (68, 68, 239)
-    r = int(hex_str[0:2], 16)
-    g = int(hex_str[2:4], 16)
-    b = int(hex_str[4:6], 16)
-    return (b, g, r)
+    try:
+        r = int(hex_str[0:2], 16)
+        g = int(hex_str[2:4], 16)
+        b = int(hex_str[4:6], 16)
+        return (b, g, r)
+    except ValueError:
+        return (68, 68, 239)
 
 
 def calculate_angle(a, b, c):
@@ -263,7 +250,7 @@ def draw_skeleton_on_image(img, keypoints, line_thickness=3, accent_hex="#ef4444
 
     # Apply customizable glow blur level
     if glow_intensity > 0:
-        blur_ksize = (glow_intensity if glow_intensity % 2 != 0 else glow_intensity + 1)
+        blur_ksize = glow_intensity if glow_intensity % 2 != 0 else glow_intensity + 1
         glow_layer = cv2.GaussianBlur(overlay, (blur_ksize, blur_ksize), 0)
         output = cv2.addWeighted(img, 0.3, cv2.addWeighted(overlay, 0.7, glow_layer, 0.5, 0), 0.7, 0)
     else:
@@ -391,7 +378,7 @@ def compute_ml_kinematic_scores(phase_keypoints, throw_type="backhand"):
         core_score = max(10, min(100, 100 - rotation_delta * 3.0))
         release_score = max(10, min(100, 100 - abs(wrist_elevation - 40) * 1.8))
         follow_score = max(10, min(100, 100 - abs(160 - follow_angle) * 1.4))
-    else: # Default Backhand
+    else:  # Default Backhand
         stance_score = max(10, min(100, 100 - abs(132 - knee_angle) * 1.8))
         reach_score = max(10, min(100, 100 - abs(165 - elbow_angle) * 1.5))
         core_score = max(10, min(100, 100 - rotation_delta * 2.5))
